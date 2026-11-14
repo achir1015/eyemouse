@@ -1,7 +1,6 @@
 """眼動鼠 進入點。"""
 import os
 import sys
-import time
 
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from PySide6.QtGui import QAction

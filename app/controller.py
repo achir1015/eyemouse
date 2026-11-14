@@ -1,7 +1,5 @@
 """眼動鼠主控制：讀視線 → 濾波 → 游標 → 停留判定 → 執行滑鼠動作。"""
 import math
-import os
-import subprocess
 import sys
 import time
 
@@ -191,20 +189,15 @@ class Controller(QObject):
         self.toolbar.update()
 
     def open_keyboard(self):
+        from .keyboard import toggle_keyboard
         self.audio.sfx("select")
-        self.audio.say("keyboard")
-        try:
-            if sys.platform == "win32":
-                os.startfile("osk.exe")
-            elif sys.platform == "darwin":
-                # 系統設定 › 輔助使用 › 鍵盤 › 開啟「輔助使用鍵盤」
-                subprocess.Popen(["open", "x-apple.systempreferences:com.apple.preference.universalaccess?Keyboard"])
-        except OSError:
-            try:
-                if sys.platform == "win32":
-                    subprocess.Popen(["explorer.exe", r"C:\Windows\System32\osk.exe"])
-            except OSError:
-                pass
+        how = toggle_keyboard()
+        if how:
+            self.audio.say("keyboard")
+        else:
+            self.audio.sfx("pause")
+            import logging
+            logging.warning("無法開啟螢幕鍵盤")
 
     def stop_scroll(self):
         self.scrolling = None

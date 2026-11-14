@@ -1,5 +1,4 @@
 """校正：小老鼠依序跑到 9 個點，使用者盯著看，收集特徵後做回歸。"""
-import math
 import time
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
