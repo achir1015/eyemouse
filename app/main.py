@@ -203,7 +203,13 @@ def main():
         if out:
             with open(out, "w", encoding="utf-8") as f:
                 f.write(msg + "\n")
-        sys.exit(code)
+        if code and sys.stdout:
+            print(msg)
+        # 直接結束：macOS 上 Qt 物件在直譯器收尾時可能崩潰（Segmentation fault），讓建置誤判失敗
+        for stream in (sys.stdout, sys.stderr):
+            if stream:
+                stream.flush()
+        os._exit(code)
 
     # 單一執行個體：再開一次只會叫出控制面板
     sock = QLocalSocket()
