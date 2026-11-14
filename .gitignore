@@ -1,0 +1,9 @@
+build/
+dist/
+dist-installer/
+.venv/
+__pycache__/
+*.log
+windows/version_info.txt
+mac/EyeMouse.icns
+lib/tobii_stream_engine.dll

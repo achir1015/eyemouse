@@ -1,0 +1,7 @@
+* text=auto eol=lf
+*.iss text eol=crlf
+*.isl text eol=crlf
+*.png binary
+*.ico binary
+*.mp3 binary
+*.task binary
