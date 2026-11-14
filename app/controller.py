@@ -9,6 +9,7 @@ from PySide6.QtGui import QGuiApplication
 from .actions import Mouse
 from .dwell import Dwell, PointFilter
 from .gaze import Mapper, create_source
+from .gazekb import GazeKeyboard
 from .overlay import CursorOverlay, ScrollGuide, Toolbar
 from .zoom import ZoomWindow
 
@@ -57,6 +58,9 @@ class Controller(QObject):
         self.zoom = None               # 放大鏡狀態 {"mode", "t0", "pending"}
         self.zoom_off = False          # 自家大按鈕畫面（校正）暫停放大鏡
         self.zoom_delay_ms = 60        # 截圖前等覆蓋層消失、關閉後再點擊（測試設 0）
+        self.kb = GazeKeyboard()
+        self.kb_dwell = Dwell(max(0.4, settings.kb_dwell_ms / 1000), 10_000, 0.6)
+        self.kb_key = None
 
         self.timer = QTimer(self)
         self.timer.setInterval(16)
@@ -80,6 +84,9 @@ class Controller(QObject):
         self.dwell.radius = s.radius
         self.dwell.cooldown_s = s.cooldown_ms / 1000
         self.tb_dwell.dwell_s = max(0.5, s.dwell_ms / 1000 * 0.9)
+        self.kb_dwell.dwell_s = max(0.4, s.kb_dwell_ms / 1000)
+        if self.kb.isVisible():
+            self.place_keyboard()
         self.overlay.set_size(s.cursor_size)
         self.toolbar.set_button(s.toolbar_button)
         self.toolbar.dock(self.screen().availableGeometry(), s.toolbar_side)
@@ -123,7 +130,7 @@ class Controller(QObject):
         self.mouse.safe_release()
         if self.source:
             self.source.stop()
-        for w in (self.overlay, self.guide, self.toolbar, self.zoom_win):
+        for w in (self.overlay, self.guide, self.toolbar, self.zoom_win, self.kb):
             w.close()
 
     # ------------------------------------------------------------ 狀態
@@ -188,16 +195,27 @@ class Controller(QObject):
         self.toolbar.flash = None
         self.toolbar.update()
 
+    def place_keyboard(self):
+        avail = self.screen().availableGeometry()
+        tb = self.toolbar.geometry() if self.toolbar.isVisible() else None
+        self.kb.place(avail, self.s.kb_width, tb)
+
     def open_keyboard(self):
-        from .keyboard import toggle_keyboard
         self.audio.sfx("select")
-        how = toggle_keyboard()
-        if how:
-            self.audio.say("keyboard")
-        else:
-            self.audio.sfx("pause")
-            import logging
-            logging.warning("無法開啟螢幕鍵盤")
+        if self.s.keyboard_type == "windows":
+            from .keyboard import toggle_keyboard
+            if toggle_keyboard():
+                self.audio.say("keyboard")
+            else:
+                self.audio.sfx("pause")
+            return
+        if self.kb.isVisible():
+            self.kb.hide()
+            return
+        self.place_keyboard()
+        self.kb.show()
+        self.kb.raise_()
+        self.audio.say("keyboard")
 
     def stop_scroll(self):
         self.scrolling = None
@@ -304,6 +322,33 @@ class Controller(QObject):
                         self.audio.sfx("pause")
                 ov.update()
                 return
+
+        # ---- 眼控鍵盤（看按鍵停留就輸入，不經放大鏡） ----
+        kkey = self.kb.key_at_global(*pt)
+        if kkey:
+            self.dwell.reset()
+            ov.progress = 0
+            ov.label = ""
+            ov.dim = False
+            if kkey == "_bar":
+                self.kb_key = None
+                self.kb.hover, self.kb.progress = None, 0
+            else:
+                if kkey != self.kb_key:
+                    self.kb_key = kkey
+                    self.kb_dwell.reset()
+                prog, fired, _ = self.kb_dwell.feed(now, pt[0], pt[1])
+                self.kb.hover, self.kb.progress = kkey, prog
+                if fired:
+                    self.kb.progress = 0
+                    self.audio.sfx("click")
+                    self.kb.press(kkey)
+            self.kb.update()
+            ov.update()
+            return
+        if self.kb.hover:
+            self.kb.hover, self.kb.progress, self.kb_key = None, 0, None
+            self.kb.update()
 
         # ---- 工具列 ----
         key = self.toolbar.button_at_global(*pt)
@@ -425,6 +470,10 @@ class Controller(QObject):
                 bounds.setRight(tb.left() - 4)
             else:
                 bounds.setLeft(tb.right() + 4)
+        if self.kb.isVisible():          # 放大鏡避開眼控鍵盤
+            kg = self.kb.geometry()
+            if pt[1] < kg.top():
+                bounds.setBottom(min(bounds.bottom(), kg.top() - 4))
         self.zoom_win.open(pix, QRectF(rx, ry, rw, rh), f, bounds, mode)
         self.zoom = {"mode": mode, "t0": time.monotonic()}
         self.dwell.reset()

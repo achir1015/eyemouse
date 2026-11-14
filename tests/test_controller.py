@@ -215,6 +215,30 @@ def test_zoom_cancel_by_looking_away():
     assert ctl.zoom is None and not ctl.mouse.log
 
 
+def test_gaze_keyboard_types_and_avoids_zoom():
+    ctl, src, clock = make(zoom=True)
+    sent = []
+    ctl.kb.sender = sent.append
+    ctl.s.kb_dwell_ms = 600
+    ctl.kb_dwell.dwell_s = 0.6
+    ctl.open_keyboard()
+    assert ctl.kb.isVisible()
+    r, _, _ = ctl.kb._rects["1"]
+    look(ctl, src, clock, ctl.kb.x() + r.center().x(), ctl.kb.y() + r.center().y(), 0.8)
+    assert sent == ["1"], sent                       # 看著「ㄅ／1」停留 → 送出 1 鍵，不開放大鏡
+    assert ctl.zoom is None and not ctl.mouse.log
+    look(ctl, src, clock, ctl.kb.x() + r.center().x(), ctl.kb.y() + r.center().y(), 1.4)
+    assert sent.count("1") == 2                      # 冷卻後繼續盯著可以再輸入
+    # 鍵盤上方開放大鏡：放大鏡不能蓋到鍵盤
+    look(ctl, src, clock, 500, ctl.kb.y() - 60, 1.2)
+    assert ctl.zoom is not None
+    assert ctl.zoom_win.geometry().bottom() < ctl.kb.geometry().top()
+    ctl.close_zoom()
+    h, _, _ = ctl.kb._rects["hide"]
+    look(ctl, src, clock, ctl.kb.x() + h.center().x(), ctl.kb.y() + h.center().y(), 0.8)
+    assert not ctl.kb.isVisible()
+
+
 if __name__ == "__main__":
     n = 0
     for k, f in list(globals().items()):

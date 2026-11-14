@@ -57,6 +57,9 @@ class Settings:
     toolbar_button: int = 92        # 工具列按鈕大小
     zoom_click: bool = True         # 放大鏡精準點擊（先放大再選）
     zoom_factor: float = 2.5
+    keyboard_type: str = "eyemouse"  # eyemouse（眼控鍵盤）/ windows（Windows 觸控鍵盤）
+    kb_width: int = 55               # 眼控鍵盤寬度（可用寬度的 %）
+    kb_dwell_ms: int = 800           # 按鍵停留時間
     sticky_modes: bool = False      # 右鍵/雙擊用完是否保留
     cooldown_ms: int = 700          # 觸發後冷卻
     scroll_speed: int = 5
