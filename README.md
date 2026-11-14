@@ -3,7 +3,13 @@
 
 <img width="1919" height="1072" alt="image" src="https://github.com/user-attachments/assets/25cce035-4ec8-48f8-a3f2-3eaa2dfe640d" />
 <img width="1007" height="365" alt="image" src="https://github.com/user-attachments/assets/8ca7014d-d70d-4b49-8d7f-a56ee25adff5" />
+教學說明
 
+https://github.com/user-attachments/assets/f57050ff-3b6c-4302-8816-a15fbcd69de3
+
+示範
+
+https://github.com/user-attachments/assets/9198bb0a-a50f-46b1-aad6-017657d3088e
 
 
 用眼睛（或頭部）取代滑鼠：**看哪裡，游標就到哪裡；盯著不動就點擊**。
