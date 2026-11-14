@@ -7,7 +7,7 @@ import sys
 import time
 
 from PySide6.QtCore import QRectF, Qt, Signal
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtGui import QColor, QLinearGradient, QPainter, QPen
 from PySide6.QtWidgets import QWidget
 
 from . import art
@@ -22,15 +22,15 @@ ROWS = [
      ("ㄦ", "-", "-", 1), ("⌫", "刪除", "back", 1.5)],
     [("ㄆ", "Q", "q", 1), ("ㄊ", "W", "w", 1), ("ㄍ", "E", "e", 1), ("ㄐ", "R", "r", 1), ("ㄔ", "T", "t", 1),
      ("ㄗ", "Y", "y", 1), ("ㄧ", "U", "u", 1), ("ㄛ", "I", "i", 1), ("ㄟ", "O", "o", 1), ("ㄣ", "P", "p", 1),
-     ("↵", "Enter", "enter", 2)],
+     ("↵", "Enter", "enter", 2.5)],
     [("ㄇ", "A", "a", 1), ("ㄋ", "S", "s", 1), ("ㄎ", "D", "d", 1), ("ㄑ", "F", "f", 1), ("ㄕ", "G", "g", 1),
      ("ㄘ", "H", "h", 1), ("ㄨ", "J", "j", 1), ("ㄜ", "K", "k", 1), ("ㄠ", "L", "l", 1), ("ㄤ", ";", ";", 1),
-     ("▲", "上", "up", 1), ("▼", "下", "down", 1)],
+     ("▲", "上", "up", 1.25), ("▼", "下", "down", 1.25)],
     [("ㄈ", "Z", "z", 1), ("ㄌ", "X", "x", 1), ("ㄏ", "C", "c", 1), ("ㄒ", "V", "v", 1), ("ㄖ", "B", "b", 1),
      ("ㄙ", "N", "n", 1), ("ㄩ", "M", "m", 1), ("ㄝ", ",", ",", 1), ("ㄡ", ".", ".", 1), ("ㄥ", "/", "/", 1),
-     ("◀", "左", "left", 1), ("▶", "右", "right", 1)],
+     ("◀", "左", "left", 1.25), ("▶", "右", "right", 1.25)],
     [("中/英", "切換", "shift", 2), ("空白", "選字／空格", "space", 5.5), ("Esc", "取消", "esc", 1.5),
-     ("收起", "鍵盤", "hide", 3)],
+     ("收起", "鍵盤", "hide", 3.5)],
 ]
 
 VK = {"back": 0x08, "enter": 0x0D, "shift": 0x10, "space": 0x20, "esc": 0x1B, "left": 0x25, "up": 0x26,
@@ -165,35 +165,72 @@ class GazeKeyboard(QWidget):
     def paintEvent(self, _):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
-        p.setPen(QPen(QColor(125, 114, 184, 170), 2))
-        p.setBrush(QColor(250, 248, 255, 240))
-        p.drawRoundedRect(QRectF(1, 1, self.width() - 2, self.height() - 2), 20, 20)
-        flash = self.flash if time.monotonic() - self.flash_t < 0.25 else None
+        # 鍵盤底座：立體托盤（外框漸層＋內凹）
+        outer = QRectF(1, 1, self.width() - 2, self.height() - 2)
+        g = QLinearGradient(outer.topLeft(), outer.bottomLeft())
+        g.setColorAt(0, QColor("#C9C1EE"))
+        g.setColorAt(1, QColor("#8F84C9"))
+        p.setPen(Qt.NoPen)
+        p.setBrush(g)
+        p.drawRoundedRect(outer, 22, 22)
+        inner = outer.adjusted(5, 5, -5, -5)
+        g2 = QLinearGradient(inner.topLeft(), inner.bottomLeft())
+        g2.setColorAt(0, QColor("#E6E1FA"))
+        g2.setColorAt(1, QColor("#F7F5FF"))
+        p.setBrush(g2)
+        p.drawRoundedRect(inner, 18, 18)
+        p.setPen(QPen(QColor(255, 255, 255, 170), 1.5))
+        p.setBrush(Qt.NoBrush)
+        p.drawRoundedRect(outer.adjusted(1.5, 1.5, -1.5, -1.5), 21, 21)
+
+        now = time.monotonic()
+        flash = self.flash if now - self.flash_t < 0.25 else None
         for code, (r, main, sub) in self._rects.items():
             special = len(code) > 1
-            base = QColor("#EDE9FF") if special else QColor("#FFFFFF")
+            face = QColor("#E9E4FF") if special else QColor("#FFFFFF")
             if code == "hide":
-                base = QColor("#FFE3E4")
+                face = QColor("#FFDCDE")
             if flash == code:
-                base = QColor("#FFE066")
-            p.setPen(QPen(QColor("#CFC8F0"), 1.5))
-            p.setBrush(base)
-            p.drawRoundedRect(r, 10, 10)
-            big = r.height() * (0.42 if len(main) <= 1 else 0.3)
-            p.setFont(_font(big))
-            p.setPen(QColor("#2E2A47"))
-            p.drawText(r.adjusted(0, 0, 0, -r.height() * 0.18), Qt.AlignCenter, main)
-            p.setFont(_font(max(9, r.height() * 0.17), False))
-            p.setPen(QColor("#8A86A8"))
-            p.drawText(r.adjusted(6, 0, -6, -3), Qt.AlignBottom | Qt.AlignRight, sub)
-            if self.hover == code and self.progress > 0:
-                pen = QPen(QColor(art.MODE_COLORS["toolbar"]), 5, Qt.SolidLine, Qt.RoundCap)
-                p.setPen(pen)
-                p.setBrush(Qt.NoBrush)
-                w = r.width() * min(1.0, self.progress)
-                p.drawLine(r.left() + 6, r.bottom() - 4, r.left() + 6 + max(0, w - 12), r.bottom() - 4)
+                face = QColor("#FFE066")
+            depth = max(4.0, r.height() * 0.11)
+            hovering = self.hover == code and self.progress > 0
+            sink = depth * (0.85 if flash == code else (0.5 * self.progress if hovering else 0.0))
+            # 陰影
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(60, 40, 120, 45))
+            p.drawRoundedRect(r.adjusted(1, 3, 1, 3), 11, 11)
+            # 鍵身（側面）
+            body = QLinearGradient(r.topLeft(), r.bottomLeft())
+            body.setColorAt(0, face.darker(112))
+            body.setColorAt(1, face.darker(135))
+            p.setBrush(body)
+            p.setPen(QPen(face.darker(150), 1))
+            p.drawRoundedRect(r, 11, 11)
+            # 鍵面（頂面，按下時往下沉）
+            top = QRectF(r.left() + 3, r.top() + 2 + sink, r.width() - 6, r.height() - depth - 3)
+            tg = QLinearGradient(top.topLeft(), top.bottomLeft())
+            tg.setColorAt(0, face.lighter(104))
+            tg.setColorAt(1, face.darker(104))
+            p.setBrush(tg)
+            p.setPen(QPen(face.darker(118), 1))
+            p.drawRoundedRect(top, 9, 9)
+            p.setPen(QPen(QColor(255, 255, 255, 200), 1.2))
+            p.drawLine(top.left() + 8, top.top() + 1.5, top.right() - 8, top.top() + 1.5)
+            if hovering:
                 c = QColor(art.MODE_COLORS["toolbar"])
-                c.setAlpha(int(40 + 60 * self.progress))
+                c.setAlpha(int(35 + 70 * self.progress))
                 p.setPen(Qt.NoPen)
                 p.setBrush(c)
-                p.drawRoundedRect(r, 10, 10)
+                p.drawRoundedRect(top, 9, 9)
+            big = top.height() * (0.5 if len(main) <= 1 else 0.34)
+            p.setFont(_font(big))
+            p.setPen(QColor("#2E2A47"))
+            p.drawText(top.adjusted(0, 0, 0, -top.height() * 0.16), Qt.AlignCenter, main)
+            p.setFont(_font(max(9, top.height() * 0.19), False))
+            p.setPen(QColor("#8A86A8"))
+            p.drawText(top.adjusted(6, 0, -7, -2), Qt.AlignBottom | Qt.AlignRight, sub)
+            if hovering:
+                pen = QPen(QColor(art.MODE_COLORS["toolbar"]), 5, Qt.SolidLine, Qt.RoundCap)
+                p.setPen(pen)
+                w = (top.width() - 16) * min(1.0, self.progress)
+                p.drawLine(top.left() + 8, top.bottom() - 4, top.left() + 8 + max(0, w), top.bottom() - 4)
