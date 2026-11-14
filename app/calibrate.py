@@ -39,6 +39,7 @@ class CalibrationWindow(QWidget):
         self.setCursor(Qt.BlankCursor)
 
     def start(self):
+        self.ctl.zoom_off = True
         self.ctl.capture_only = True
         self.ctl.toolbar.hide()
         self.show()
@@ -88,18 +89,31 @@ class CalibrationWindow(QWidget):
         self.update()
 
     def _finish(self):
+        import logging
         self.phase = "done"
+        per = [sum(1 for _, t in self.samples if t == (self.geo[0] + self.target(i).x(), self.geo[1] + self.target(i).y()))
+               for i in range(len(POINTS))]
+        logging.info("校正：來源=%s 狀態=%s 每點樣本=%s", self.src.key, self.src.status, per)
         self.ctl.capture_only = False
         self.setCursor(Qt.ArrowCursor)
         n_pts = len({tuple(t) for _, t in self.samples})
         if len(self.samples) < 30 or n_pts < 6:
             self.result = None
-            self.msg = "收集到的視線資料太少，請確認眼動儀／攝影機看得到您的眼睛後再試一次。"
+            self.msg = (f"收集到的視線資料太少（每點 {per}），請確認眼動儀／攝影機看得到您的眼睛後再試一次。"
+                        f"\n來源狀態：{self.src.status}")
             self.ctl.audio.say("calib_fail")
         else:
-            self.result, self.err = Mapper.fit(self.src, self.samples, self.geo)
+            try:
+                self.result, self.err = Mapper.fit(self.src, self.samples, self.geo)
+            except Exception as e:  # noqa: BLE001 — 資料退化（視線都在同一點）
+                logging.warning("校正計算失敗：%s", e)
+                self.result = None
+                self.msg = "視線資料看起來都停在同一個地方，請跟著小老鼠移動視線後重做。"
+                self.ctl.audio.say("calib_fail")
+                return
             q = "很好" if self.err < 60 else ("普通" if self.err < 130 else "偏差較大，建議重做")
             self.msg = f"校正完成！平均誤差約 {self.err:.0f} 像素（{q}）。"
+            logging.info("校正完成 誤差=%.0f", self.err)
             self.ctl.audio.say("calib_done")
 
     # ---- 結束按鈕：可用視線停留（此時已恢復點擊）或滑鼠點 ----
@@ -137,6 +151,7 @@ class CalibrationWindow(QWidget):
         self.finished.emit(ok)
 
     def closeEvent(self, e):
+        self.ctl.zoom_off = False
         self.ctl.capture_only = False
         self.ctl.toolbar.show()
         super().closeEvent(e)

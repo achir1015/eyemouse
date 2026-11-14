@@ -37,6 +37,11 @@ class Hotkeys(QObject):
 class App(QObject):
     def __init__(self, qapp, argv):
         super().__init__()
+        import logging
+        from .config import data_dir
+        logging.basicConfig(filename=os.path.join(data_dir(), "eyemouse.log"), level=logging.INFO, encoding="utf-8",
+                            format="%(asctime)s %(levelname)s %(message)s")
+        logging.info("啟動 v%s %s", APP_VERSION, " ".join(argv[1:]))
         self.qapp = qapp
         self.s = Settings.load()
         self.audio = Audio()
@@ -53,6 +58,7 @@ class App(QObject):
         self.panel.check_update.connect(lambda: self.updater.check(silent=False))
         self.panel.quit_app.connect(self.quit)
         self.ctl.menu_requested.connect(self.show_panel)
+        self.ctl.status_changed.connect(lambda t: __import__("logging").info("狀態：%s", t))
 
         self.tray = QSystemTrayIcon(art.app_icon())
         self.tray.setToolTip(f"{APP_TITLE} v{APP_VERSION}")
@@ -79,13 +85,15 @@ class App(QObject):
         self.ctl.start()
         if "--hidden" not in argv:
             self.show_panel()
-        if not self.s.tutorial_done and "--no-tutorial" not in argv:
+        if not self.s.tutorial_done and "--no-tutorial" not in argv and "--calibrate" not in argv:
             QTimer.singleShot(800, self.tutorial)
         else:
             QTimer.singleShot(600, lambda: self.audio.say("welcome"))
         if self.s.auto_update and "--no-update" not in argv:
             QTimer.singleShot(5000, lambda: self.updater.check(silent=True))
         QTimer.singleShot(4000, self._warn_no_tracker)
+        if "--calibrate" in argv:
+            QTimer.singleShot(2500, self.calibrate)
 
     def _warn_no_tracker(self):
         src = self.ctl.source

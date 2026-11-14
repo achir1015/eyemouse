@@ -12,6 +12,7 @@ from .actions import Mouse
 from .dwell import Dwell, PointFilter
 from .gaze import Mapper, create_source
 from .overlay import CursorOverlay, ScrollGuide, Toolbar
+from .zoom import ZoomWindow
 
 ONE_SHOT = ("double", "right")
 MODE_NAMES = {"left": "左鍵點一下", "double": "連按兩下", "right": "右鍵", "drag": "拖曳", "scroll": "捲動"}
@@ -54,6 +55,10 @@ class Controller(QObject):
         self.guide = ScrollGuide()
         self.toolbar = Toolbar(settings.toolbar_button)
         self.toolbar.picked.connect(self.pick)
+        self.zoom_win = ZoomWindow()
+        self.zoom = None               # 放大鏡狀態 {"mode", "t0", "pending"}
+        self.zoom_off = False          # 自家大按鈕畫面（校正）暫停放大鏡
+        self.zoom_delay_ms = 60        # 截圖前等覆蓋層消失、關閉後再點擊（測試設 0）
 
         self.timer = QTimer(self)
         self.timer.setInterval(16)
@@ -120,7 +125,7 @@ class Controller(QObject):
         self.mouse.safe_release()
         if self.source:
             self.source.stop()
-        for w in (self.overlay, self.guide, self.toolbar):
+        for w in (self.overlay, self.guide, self.toolbar, self.zoom_win):
             w.close()
 
     # ------------------------------------------------------------ 狀態
@@ -154,6 +159,8 @@ class Controller(QObject):
             self.audio.say(f"mode_{mode}")
 
     def toggle_pause(self, value=None):
+        if self.zoom is not None:
+            self.close_zoom()
         self.paused = (not self.paused) if value is None else value
         self.toolbar.paused = self.paused
         self.toolbar.update()
@@ -279,6 +286,32 @@ class Controller(QObject):
                 self.last_set = None
         manual = now < self.manual_until
 
+        # ---- 放大鏡 ----
+        if self.zoom is not None:
+            ov.dim = False
+            ov.label = ""
+            if self.zoom.get("pending"):
+                ov.progress = 0
+                ov.update()
+                return
+            if now - self.zoom["t0"] > 10:
+                self.close_zoom()
+            else:
+                prog, fired, _ = self.dwell.feed(now, pt[0], pt[1])
+                ov.progress = prog
+                if fired:
+                    if self.zoom_win.contains_global(*fired):
+                        target = self.zoom_win.to_screen(*fired)
+                        mode = self.zoom["mode"]
+                        self.close_zoom()
+                        self._happy_until = now + 0.6
+                        self._later(lambda: self.do_action(target, mode))
+                    else:
+                        self.close_zoom()
+                        self.audio.sfx("pause")
+                ov.update()
+                return
+
         # ---- 工具列 ----
         key = self.toolbar.button_at_global(*pt)
         if key:
@@ -360,9 +393,58 @@ class Controller(QObject):
         self.mouse.move(*pt)
         self.last_set = (int(round(pt[0])), int(round(pt[1])))
 
+    def _later(self, fn):
+        if self.zoom_delay_ms <= 0:
+            fn()
+        else:
+            QTimer.singleShot(self.zoom_delay_ms, fn)
+
     def fire(self, pt):
-        x, y = pt
         m = self.mode
+        if self.s.zoom_click and not self.zoom_off and m in ("left", "double", "right", "drag"):
+            self.open_zoom(pt, m)
+            return
+        self.do_action(pt, m)
+
+    def open_zoom(self, pt, mode):
+        self.zoom = {"mode": mode, "t0": time.monotonic(), "pending": True}
+        self.overlay.hide()
+        self.audio.sfx("select")
+        self._later(lambda: self._grab_zoom(pt, mode))
+
+    def _grab_zoom(self, pt, mode):
+        if self.zoom is None:
+            return
+        scr = self.screen()
+        sg = scr.geometry()
+        f = max(1.5, float(self.s.zoom_factor))
+        rw = min(sg.width() * 0.34, 460)
+        rh = rw * 0.62
+        rx = min(max(pt[0] - rw / 2, sg.left()), sg.left() + sg.width() - rw)
+        ry = min(max(pt[1] - rh / 2, sg.top()), sg.top() + sg.height() - rh)
+        from PySide6.QtCore import QRectF
+        pix = scr.grabWindow(0, int(rx - sg.left()), int(ry - sg.top()), int(rw), int(rh))
+        ag = scr.availableGeometry()
+        bounds = QRectF(ag.left(), ag.top(), ag.width(), ag.height())
+        if self.toolbar.isVisible():
+            tb = self.toolbar.geometry()
+            if self.s.toolbar_side == "right":
+                bounds.setRight(tb.left() - 4)
+            else:
+                bounds.setLeft(tb.right() + 4)
+        self.zoom_win.open(pix, QRectF(rx, ry, rw, rh), f, bounds, mode)
+        self.zoom = {"mode": mode, "t0": time.monotonic()}
+        self.dwell.reset()
+        self.filter.reset()
+        self.overlay.show()
+
+    def close_zoom(self):
+        self.zoom = None
+        self.zoom_win.hide()
+        self.dwell.reset()
+
+    def do_action(self, pt, m):
+        x, y = pt
         if m == "left":
             self.mouse.click(x, y, "l", 1)
             self.audio.sfx("click")

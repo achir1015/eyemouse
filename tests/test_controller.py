@@ -74,13 +74,15 @@ class FakeMouse:
         self.left_held = False
 
 
-def make():
+def make(zoom=False):
     clock = Clock()
     C.time.monotonic = clock
     s = Settings()
     s.dwell_ms, s.radius, s.cooldown_ms, s.smoothing = 800, 50, 600, 30
     s.voice = s.sound = False
+    s.zoom_click = zoom
     ctl = C.Controller(s, Audio())
+    ctl.zoom_delay_ms = 0
     src = FakeSource(clock)
     ctl.source, ctl.source_key, ctl.mapper = src, "fake", None
     ctl.mouse = FakeMouse()
@@ -184,6 +186,33 @@ def test_manual_mouse_yields():
     ctl.mouse.p = (900, 100)               # 照顧者動了滑鼠
     look(ctl, src, clock, 300, 300, 1.2)
     assert not [e for e in ctl.mouse.log if e[0] == "click"]
+
+
+def test_zoom_precise_click():
+    ctl, src, clock = make(zoom=True)
+    look(ctl, src, clock, 600, 400, 1.2)
+    assert ctl.zoom is not None and not ctl.mouse.log, "第一次停留應只開放大鏡"
+    zw = ctl.zoom_win
+    assert zw.isVisible()
+    # 放大視窗中心 = 原本 region 中心；往右下 50 放大像素 → 原畫面 +20
+    cx = zw.x() + zw.width() / 2 + 50
+    cy = zw.y() + zw.height() / 2 + 50
+    exp = zw.to_screen(cx, cy)
+    look(ctl, src, clock, cx, cy, 1.5)
+    clicks = [e for e in ctl.mouse.log if e[0] == "click"]
+    assert len(clicks) == 1, ctl.mouse.log
+    assert abs(clicks[0][3] - exp[0]) < 4 and abs(clicks[0][4] - exp[1]) < 4, (clicks, exp)
+    assert ctl.zoom is None and not zw.isVisible()
+
+
+def test_zoom_cancel_by_looking_away():
+    ctl, src, clock = make(zoom=True)
+    look(ctl, src, clock, 600, 400, 1.2)
+    zw = ctl.zoom_win
+    # 看放大視窗外面停留 → 取消、不點擊
+    away = (zw.x() - 120, zw.y() + 10) if zw.x() > 200 else (zw.x() + zw.width() + 120, zw.y() + 10)
+    look(ctl, src, clock, *away, 1.5)
+    assert ctl.zoom is None and not ctl.mouse.log
 
 
 if __name__ == "__main__":

@@ -55,6 +55,8 @@ class Settings:
     skip_version: str = ""
     toolbar_side: str = "right"     # right / left
     toolbar_button: int = 92        # 工具列按鈕大小
+    zoom_click: bool = True         # 放大鏡精準點擊（先放大再選）
+    zoom_factor: float = 2.5
     sticky_modes: bool = False      # 右鍵/雙擊用完是否保留
     cooldown_ms: int = 700          # 觸發後冷卻
     scroll_speed: int = 5
