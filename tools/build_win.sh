@@ -19,7 +19,12 @@ EOF
 python -m PyInstaller EyeMouse.spec --noconfirm --clean
 ./dist/EyeMouse/EyeMouse.exe --selftest --out dist/selftest.log || true
 grep -q "SELFTEST OK" dist/selftest.log || { cat dist/selftest.log; echo "打包後自我測試失敗"; exit 1; }
-"$LOCALAPPDATA/Programs/Inno Setup 6/ISCC.exe" "//DAppVer=$VER" windows/installer.iss
+# 防毒軟體偶爾鎖住輸出檔（EndUpdateResource failed 110）→ 重試
+for i in 1 2 3; do
+  "$LOCALAPPDATA/Programs/Inno Setup 6/ISCC.exe" "//DAppVer=$VER" windows/installer.iss && break
+  [ "$i" = 3 ] && { echo "Inno Setup 失敗"; exit 1; }
+  echo "Inno Setup 第 $i 次失敗，5 秒後重試"; sleep 5
+done
 mkdir -p dist-installer
 (cd dist && rm -f ../dist-installer/EyeMouse-Windows-portable.zip && powershell -NoProfile -Command "Compress-Archive -Path EyeMouse -DestinationPath ../dist-installer/EyeMouse-Windows-portable.zip -Force")
 ls -la dist-installer
