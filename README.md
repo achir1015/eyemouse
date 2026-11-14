@@ -2,6 +2,9 @@
 <img width="1185" height="905" alt="image" src="https://github.com/user-attachments/assets/5b2905b2-efb4-4ee5-bf96-767a1e45d558" />
 
 <img width="1919" height="1072" alt="image" src="https://github.com/user-attachments/assets/25cce035-4ec8-48f8-a3f2-3eaa2dfe640d" />
+<img width="1007" height="365" alt="image" src="https://github.com/user-attachments/assets/8ca7014d-d70d-4b49-8d7f-a56ee25adff5" />
+
+
 
 用眼睛（或頭部）取代滑鼠：**看哪裡，游標就到哪裡；盯著不動就點擊**。
 為「眼睛正常、但無法說話與自主行動」的臥床者設計，延續病房團隊「Eye 讓生活改變」的創意。
