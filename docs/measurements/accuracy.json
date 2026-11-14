@@ -1,0 +1,11 @@
+{
+ "note": "Tobii Eye Tracker 5 原始注視點（未經眼動鼠校正、未濾波），Tobii Experience 校正後；螢幕 1920x1080（15.6 吋 344x194 mm），距離約 62 cm；每點取第 1.2~3.0 秒的樣本",
+ "points": [
+  {"target": [960, 540], "n": 57, "mean": [960, 515], "offset_px": 25, "jitter_px": 92},
+  {"target": [230, 162], "n": 59, "mean": [257, 142], "offset_px": 33, "jitter_px": 95},
+  {"target": [1690, 162], "n": 57, "mean": [1648, 114], "offset_px": 64, "jitter_px": 43},
+  {"target": [1690, 918], "n": 54, "mean": [1697, 893], "offset_px": 26, "jitter_px": 42},
+  {"target": [230, 918], "n": 56, "mean": [222, 949], "offset_px": 32, "jitter_px": 81}
+ ],
+ "eyemouse_calibration_median_error_px": 19
+}
