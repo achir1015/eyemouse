@@ -1,4 +1,5 @@
 # 眼動鼠 EyeMouse
+<img width="1919" height="1072" alt="image" src="https://github.com/user-attachments/assets/25cce035-4ec8-48f8-a3f2-3eaa2dfe640d" />
 
 用眼睛（或頭部）取代滑鼠：**看哪裡，游標就到哪裡；盯著不動就點擊**。
 為「眼睛正常、但無法說話與自主行動」的臥床者設計，延續病房團隊「Eye 讓生活改變」的創意。
