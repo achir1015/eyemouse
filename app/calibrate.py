@@ -20,6 +20,7 @@ class CalibrationWindow(QWidget):
         super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.ctl = ctl
         self.src = ctl.source
+        self.head = ctl.source.key.endswith("_head")   # 頭控：要轉頭指向小老鼠
         g = ctl.screen().geometry()
         self.setGeometry(g)
         self.geo = (g.x(), g.y(), g.width(), g.height())
@@ -46,7 +47,7 @@ class CalibrationWindow(QWidget):
         self.activateWindow()
         if hasattr(self.src, "recenter"):
             self.src.recenter()
-        self.ctl.audio.say("calib_intro")
+        self.ctl.audio.say("calib_intro_head" if self.head else "calib_intro")
 
     def target(self, i):
         fx, fy = POINTS[i]
@@ -110,7 +111,16 @@ class CalibrationWindow(QWidget):
                 self.msg = "視線資料看起來都停在同一個地方，請跟著小老鼠移動視線後重做。"
                 self.ctl.audio.say("calib_fail")
                 return
-            q = "很好" if self.err < 60 else ("普通" if self.err < 130 else "偏差較大，建議重做")
+            limit = 220 if self.src.key.startswith("webcam") else 150
+            if self.err > limit:
+                # 誤差太大：不給套用，避免游標比原本更不準
+                logging.info("校正誤差 %.0f 超過 %d，不套用", self.err, limit)
+                self.result = None
+                tip = "請轉頭讓鼻子指向小老鼠，" if self.head else "請盯著小老鼠、頭保持不動，"
+                self.msg = f"這次誤差約 {self.err:.0f} 像素，太大了，所以不套用。{tip}再按「重做」。"
+                self.ctl.audio.say("calib_fail")
+                return
+            q = "很好" if self.err < 60 else ("普通" if self.err < 130 else "可以用，但建議重做一次")
             self.msg = f"校正完成！平均誤差約 {self.err:.0f} 像素（{q}）。"
             logging.info("校正完成 誤差=%.0f", self.err)
             self.ctl.audio.say("calib_done")
@@ -135,7 +145,7 @@ class CalibrationWindow(QWidget):
             self.setCursor(Qt.BlankCursor)
             if hasattr(self.src, "recenter"):
                 self.src.recenter()
-            self.ctl.audio.say("calib_intro")
+            self.ctl.audio.say("calib_intro_head" if self.head else "calib_intro")
             return
         ok = False
         if k == "apply" and self.result:
@@ -167,6 +177,7 @@ class CalibrationWindow(QWidget):
         p.setFont(_font(max(18, h * 0.026)))
         if self.phase == "intro":
             p.drawText(QRectF(0, h * 0.18, w, 120), Qt.AlignCenter,
+                       "校正開始：請轉頭，讓鼻子指向小老鼠\n跟著牠到各個位置" if self.head else
                        "校正開始：請盯著小老鼠，跟著牠移動\n頭盡量不要動喔！")
         elif self.phase != "done":
             p.drawText(QRectF(0, 20, w, 60), Qt.AlignCenter, f"請看著小老鼠　{self.idx + 1} / {len(POINTS)}")

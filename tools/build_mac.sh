@@ -18,7 +18,7 @@ rm -rf build dist
 python -m PyInstaller EyeMouse.spec --noconfirm --clean
 APP="dist/眼動鼠.app"
 # 用 Developer ID 簽章：程式身分固定，更新後「輔助使用」「相機」權限可以沿用；沒有憑證才用臨時簽章
-IDENT=$(security find-identity -v -p codesigning 2>/dev/null | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*//p' | head -1)
+IDENT=$(bash tools/find_ident.sh)
 if [ -n "$IDENT" ] && codesign --force --deep --timestamp=none -s "$IDENT" "$APP"; then
   echo "已用 $IDENT 簽章"
 else

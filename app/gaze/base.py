@@ -61,6 +61,9 @@ class Mapper:
         self.W = None
         self.mean = None
         self.std = None
+        # 攝影機的舊校正沒有記錄誤差（1.2.2 以前可能套用了很差的結果）→ 忽略，請重新校正
+        if calib and source.key.startswith("webcam") and calib.get("err") is None:
+            calib = None
         if calib and calib.get("kind") == source.fit_kind and calib.get("W"):
             try:
                 self.W = np.array(calib["W"], dtype=float)
@@ -101,5 +104,6 @@ class Mapper:
         W = np.linalg.solve(A, Z.T @ Y)
         pred = Z @ W
         err = np.hypot((pred[:, 0] - Y[:, 0]) * gw, (pred[:, 1] - Y[:, 1]) * gh)
-        calib = {"kind": source.fit_kind, "W": W.tolist(), "mean": mean.tolist(), "std": std.tolist()}
-        return calib, float(np.median(err))
+        med = float(np.median(err))
+        calib = {"kind": source.fit_kind, "W": W.tolist(), "mean": mean.tolist(), "std": std.tolist(), "err": round(med, 1)}
+        return calib, med
