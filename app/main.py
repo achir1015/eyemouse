@@ -55,7 +55,7 @@ class App(QObject):
         self.panel.tutorial.connect(self.tutorial)
         self.panel.assess.connect(self.assess)
         self.panel.check_update.connect(lambda: self.updater.check(silent=False))
-        self.panel.quit_app.connect(self.quit)
+        self.panel.quit_app.connect(self.ask_quit)
         self.ctl.menu_requested.connect(self.show_panel)
         self.ctl.status_changed.connect(lambda t: __import__("logging").info("狀態：%s", t))
 
@@ -64,7 +64,7 @@ class App(QObject):
         m = QMenu()
         for label, fn in (("控制面板", self.show_panel), ("暫停 / 繼續", lambda: self.ctl.toggle_pause()),
                           ("校正視線", self.calibrate), ("動畫教學", self.tutorial), ("眼動評估", self.assess),
-                          ("檢查更新", lambda: self.updater.check(silent=False)), (None, None), ("結束", self.quit)):
+                          ("檢查更新", lambda: self.updater.check(silent=False)), (None, None), ("結束", self.ask_quit)):
             if label is None:
                 m.addSeparator()
                 continue
@@ -82,6 +82,8 @@ class App(QObject):
         self.hk.start()
 
         self.ctl.start()
+        from .gamelink import GameLink
+        self.gamelink = GameLink(self.ctl)
         if "--hidden" not in argv:
             self.show_panel()
         if not self.s.tutorial_done and "--no-tutorial" not in argv and "--calibrate" not in argv:
@@ -132,8 +134,26 @@ class App(QObject):
         self.assess_win.show()
         self.assess_win.raise_()
 
+    def ask_quit(self):
+        """結束前確認：避免視線停留誤按「結束」，臥床使用者就沒辦法自己再打開。"""
+        from PySide6.QtWidgets import QMessageBox, QPushButton
+        box = QMessageBox(self.panel if self.panel.isVisible() else None)
+        box.setWindowTitle(APP_TITLE)
+        box.setText("確定要結束眼動鼠嗎？\n結束後就不能用眼睛控制滑鼠了。")
+        box.setStyleSheet("QLabel{font-size:20px;} QPushButton{font-size:22px; min-width:220px; min-height:110px;}")
+        keep = QPushButton("繼續使用")
+        bye = QPushButton("結束")
+        box.addButton(keep, QMessageBox.RejectRole)
+        box.addButton(bye, QMessageBox.AcceptRole)
+        box.setDefaultButton(keep)
+        box.setWindowFlag(Qt.WindowStaysOnTopHint, True)
+        box.exec()
+        if box.clickedButton() is bye:
+            self.quit()
+
     def quit(self):
         self.hk.stop()
+        self.gamelink.close()
         self.ctl.shutdown()
         self.tray.hide()
         self.qapp.quit()
@@ -189,6 +209,14 @@ def selftest(qapp):
     AssessWindow(ctl)
     Panel(ctl)
     ok.append("windows")
+    from .gamelink import GameLink, to_physical
+    gl = GameLink(ctl)
+    ctl.set_game_mode(True)
+    assert ctl.game_mode and not ctl.toolbar.isVisible()
+    ctl.set_game_mode(False)
+    to_physical(10, 10)
+    gl.close()
+    ok.append("gamelink")
     if sys.stdout:
         print("SELFTEST OK:", ", ".join(ok))
     return 0

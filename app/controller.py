@@ -39,6 +39,7 @@ class Controller(QObject):
         self.last_pt = None
         self.capture_only = False      # 校正/評估時：只追蹤不點擊
         self.suspended = False         # 完全停用（評估全螢幕播放時）
+        self.game_mode = False         # 眼動遊戲連線中：只送視線給遊戲、不點擊、隱藏游標與工具列
         self._prev = None
         self._blink_t = time.monotonic() + 3
         self._happy_until = 0
@@ -163,6 +164,24 @@ class Controller(QObject):
             self.audio.sfx("select")
             self.audio.say(f"mode_{mode}")
 
+    def set_game_mode(self, on):
+        """眼動遊戲開始／結束：遊戲自己畫游標、自己用停留選取，眼動鼠讓出點擊。"""
+        self.game_mode = bool(on)
+        if self.zoom is not None:
+            self.close_zoom()
+        self.mouse.safe_release()
+        self.drag_held = False
+        self.stop_scroll()
+        self.dwell.reset()
+        if on:
+            self.toolbar.hide()
+            self.overlay.hide()
+            if self.kb.isVisible():
+                self.kb.hide()
+        else:
+            self.toolbar.show()
+            self.overlay.show()
+
     def toggle_pause(self, value=None):
         if self.zoom is not None:
             self.close_zoom()
@@ -279,10 +298,10 @@ class Controller(QObject):
             ov.look = (lx * 0.85 + max(-1, min(1, dx / 25)) * 0.15, ly * 0.85 + max(-1, min(1, dy / 25)) * 0.15)
         self.last_pt = pt
         ov.place(*pt)
-        if not ov.isVisible() and not self.capture_only:
+        if not ov.isVisible() and not self.capture_only and not self.game_mode:
             ov.show()
 
-        if self.capture_only:
+        if self.capture_only or self.game_mode:
             ov.progress = 0
             if ov.isVisible():
                 ov.hide()

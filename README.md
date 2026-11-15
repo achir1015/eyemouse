@@ -53,3 +53,7 @@ bash tools/build_mac.sh       # Mac → dist-installer/EyeMouse-macOS.dmg
 版本號只改 `VERSION`。設定存在 `%LOCALAPPDATA%\EyeMouse`（Mac：`~/Library/Application Support/EyeMouse`）。
 
 系統開發：吳玉柱 先生 與 Claude AI Opus 5.5
+
+## 遊戲連線（v1.3.0 起）
+
+眼動遊戲（例如「小柯機器人眼動探險島」）可以透過本機 `127.0.0.1:47961`（TCP、一行一個 JSON）直接取得視線座標：遊戲送 `{"cmd":"game","on":true}` 後，眼動鼠只追蹤視線、不點擊，並隱藏游標與工具列，由遊戲自己畫游標與用停留選取；遊戲失去焦點、送 `on:false` 或關閉連線時自動恢復成滑鼠。座標為物理像素、以所有螢幕的最左上角為原點。詳見 `app/gamelink.py`。
