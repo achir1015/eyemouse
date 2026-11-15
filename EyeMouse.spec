@@ -9,7 +9,7 @@ hidden = ["pynput.mouse._win32", "pynput.keyboard._win32"] if sys.platform == "w
          ["pynput.mouse._darwin", "pynput.keyboard._darwin"]
 
 a = Analysis(["eyemouse.py"], pathex=["."], binaries=binaries, datas=datas, hiddenimports=hidden,
-             excludes=["tkinter", "matplotlib", "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets",
+             excludes=["tkinter"] + ([] if sys.platform == "darwin" else ["matplotlib"]) + ["PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets",
                        "PySide6.Qt3DCore", "PySide6.QtQuick3D", "PySide6.QtPdf", "PySide6.QtCharts",
                        "PySide6.QtDataVisualization", "PySide6.QtDesigner", "torch", "tensorflow", "jax"],
              noarchive=False)

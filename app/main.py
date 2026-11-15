@@ -163,6 +163,20 @@ def selftest(qapp):
             fn(p, t, 30)
             p.end()
     ok.append(f"tutorial x{len(tutorial.SCENES)}")
+    # 攝影機元件：真的載入 mediapipe 與臉部模型（Mac 打包曾漏掉 matplotlib 而無法使用攝影機）
+    import mediapipe as mp
+    from mediapipe.tasks import python as mpt
+    from mediapipe.tasks.python import vision
+    from .config import resource_path
+    with open(resource_path("assets", "face_landmarker.task"), "rb") as f:
+        buf = f.read()
+    lmk = vision.FaceLandmarker.create_from_options(vision.FaceLandmarkerOptions(
+        base_options=mpt.BaseOptions(model_asset_buffer=buf), running_mode=vision.RunningMode.IMAGE, num_faces=1))
+    import numpy as np
+    lmk.detect(mp.Image(image_format=mp.ImageFormat.SRGB, data=np.zeros((240, 320, 3), np.uint8)))
+    lmk.close()
+    import cv2  # noqa: F401
+    ok.append("camera-model")
     for name in ["welcome", "mode_left", "tut_practice"]:
         assert audio.voice_path(name), f"缺語音 {name}"
     ok.append("voice")
