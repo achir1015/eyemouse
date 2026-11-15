@@ -90,11 +90,23 @@ class WebcamSource(GazeSource):
             self.status = f"臉部模型載入失敗：{e}"
             return
         api = cv2.CAP_DSHOW if sys.platform == "win32" else (cv2.CAP_AVFOUNDATION if sys.platform == "darwin" else cv2.CAP_ANY)
-        cap = cv2.VideoCapture(self.camera_index, api)
-        if not cap.isOpened():
-            cap = cv2.VideoCapture(self.camera_index)
-        if not cap.isOpened():
-            self.status = "打不開攝影機（Mac 請到「隱私權與安全性 › 相機」允許眼動鼠）"
+        # Mac 第一次要相機權限時會先失敗、同時跳出詢問；所以持續重試，使用者按「好」後自動接上
+        cap = None
+        tries = 0
+        while self.running:
+            cap = cv2.VideoCapture(self.camera_index, api)
+            if not cap.isOpened():
+                cap.release()
+                cap = cv2.VideoCapture(self.camera_index)
+            if cap.isOpened():
+                break
+            cap.release()
+            cap = None
+            tries += 1
+            self.status = ("等待相機權限：請在跳出的視窗按「好」，或到「系統設定 › 隱私權與安全性 › 相機」打開眼動鼠"
+                           if sys.platform == "darwin" else "打不開攝影機：請確認沒有其他程式正在使用攝影機")
+            time.sleep(2.0 if tries < 30 else 5.0)
+        if cap is None:
             return
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
