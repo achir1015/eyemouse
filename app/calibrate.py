@@ -25,6 +25,7 @@ class CalibrationWindow(QWidget):
         self.setGeometry(g)
         self.geo = (g.x(), g.y(), g.width(), g.height())
         self.samples = []
+        self.full = []          # 攝影機全部特徵（存檔給開發者分析）
         self.idx = -1
         self.phase = "intro"
         self.t0 = time.monotonic()
@@ -78,6 +79,7 @@ class CalibrationWindow(QWidget):
                 self._last_t = smp[0]
                 tgt = self.target(self.idx)
                 self.samples.append((smp[1], (self.geo[0] + tgt.x(), self.geo[1] + tgt.y())))
+                self.full.append(getattr(self.src, "full", None))
             if el >= COLLECT_S:
                 self.ctl.audio.sfx("select")
                 self.idx += 1
@@ -94,6 +96,17 @@ class CalibrationWindow(QWidget):
         per = [sum(1 for _, t in self.samples if t == (self.geo[0] + self.target(i).x(), self.geo[1] + self.target(i).y()))
                for i in range(len(POINTS))]
         logging.info("校正：來源=%s 狀態=%s 每點樣本=%s", self.src.key, self.src.status, per)
+        try:  # 存下校正資料（只有特徵數字與目標座標，沒有影像），方便改進算法
+            import json
+            import os
+            from .config import data_dir
+            d = os.path.join(data_dir(), "calib_samples")
+            os.makedirs(d, exist_ok=True)
+            with open(os.path.join(d, time.strftime("%Y%m%d_%H%M%S") + f"_{self.src.key}.json"), "w", encoding="utf-8") as f:
+                json.dump({"source": self.src.key, "geo": self.geo,
+                           "samples": [[list(ft), fl, list(t)] for (ft, t), fl in zip(self.samples, self.full)]}, f)
+        except Exception as e:  # noqa: BLE001
+            logging.warning("校正資料存檔失敗：%s", e)
         self.ctl.capture_only = False
         self.setCursor(Qt.ArrowCursor)
         n_pts = len({tuple(t) for _, t in self.samples})
@@ -140,6 +153,7 @@ class CalibrationWindow(QWidget):
     def _choose(self, k):
         if k == "redo":
             self.samples.clear()
+            self.full.clear()
             self.idx, self.phase, self.t0 = -1, "intro", time.monotonic()
             self.ctl.capture_only = True
             self.setCursor(Qt.BlankCursor)

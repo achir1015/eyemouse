@@ -168,6 +168,7 @@ class WebcamSource(GazeSource):
                 self._neutral = np.mean(self._neutral_acc, axis=0)
             return None
         d = f - self._neutral
+        self.full = tuple(float(v) for v in d)   # 全部 6 個特徵（校正診斷用）
         if self.head_only:
             return (float(d[2]), float(d[3]), float(d[4]), float(d[5]))
         return (float(d[0]), float(d[1]), float(d[2]), float(d[3]))
