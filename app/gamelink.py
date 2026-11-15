@@ -11,6 +11,7 @@
 """
 import json
 import logging
+import sys
 import time
 
 from PySide6.QtCore import QObject, QPoint, QTimer
@@ -28,6 +29,10 @@ def to_physical(x, y):
     screens = QGuiApplication.screens()
     ox = min(s.geometry().x() for s in screens)
     oy = min(s.geometry().y() for s in screens)
+    if sys.platform == "darwin":
+        # macOS 的 Godot：整個桌面座標（點）以所有螢幕左上為原點，再乘上「最大的」螢幕倍率
+        k = max(s.devicePixelRatio() for s in screens)
+        return (x - ox) * k, (y - oy) * k
     scr = QGuiApplication.screenAt(QPoint(int(x), int(y))) or QGuiApplication.primaryScreen()
     g = scr.geometry()
     dpr = scr.devicePixelRatio()
