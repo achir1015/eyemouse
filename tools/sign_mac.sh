@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
-# 在 Mac「終端機」執行（SSH 連線時鑰匙圈鎖住，codesign 會 errSecInternalComponent）：
+# 由使用者在 Mac「終端機」自己執行（會動用 Developer ID 憑證，不由自動化流程執行）：
 #   bash tools/sign_mac.sh [--install]
 # 用 Developer ID 重新簽章 dist/眼動鼠.app、重做 dmg；--install 另外裝到 /Applications 並開啟。
 set -euo pipefail
 cd "$(dirname "$0")/.."
 APP="dist/眼動鼠.app"
+# 簽章專用鑰匙圈 zms-signing（之前為資料助秘建立，密碼檔在 ~/Developer/zms-signing/kc.pass，不進 git）
+SIGN_KC="$HOME/Library/Keychains/zms-signing.keychain-db"
+if [ -f "$SIGN_KC" ] && [ -f "$HOME/Developer/zms-signing/kc.pass" ]; then
+  security unlock-keychain -p "$(cat "$HOME/Developer/zms-signing/kc.pass")" "$SIGN_KC"
+fi
 IDENT=$(bash tools/find_ident.sh)
 [ -n "$IDENT" ] || { echo "找不到 Developer ID Application 憑證"; exit 1; }
 codesign --force --deep --timestamp=none -s "$IDENT" "$APP"
